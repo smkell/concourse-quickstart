@@ -1,24 +1,57 @@
 resources:
-  - name: repo
+  - name: my-repo
     type: git
     source:
       uri: https://github.com/smkell/concourse-quickstart.git
 
 jobs:
-- name: hello-world-job
-  plan:
-  # Add a get step referencing the resource
-  - get: repo
-    trigger: true
-  - task: hello-world-task
-    config:
-      platform: linux
-      image_resource:
-        type: registry-image
-        source:
-          repository: busybox
-      inputs:
-        - name: repo
-      run:
-        path: cat
-        args: ["repo/README.md"]
+  # Update this pipeline before updating child pipelines
+  - name: set-self
+    public: true
+    plan:
+      - get: my-repo
+        trigger: true
+      - set_pipeline: self
+        file: my-repo/hello-world.yml
+
+  - name: job-a
+    plan:
+      - get: my-repo
+        trigger: true
+        passed: [set-self]
+  - name: job-b
+    plan:
+      - get: my-repo
+        trigger: true
+  - name: job-c
+    plan:
+      - get: my-repo
+        trigger: true
+
+  - name: the-gate
+    plan:
+      - get: my-repo
+        trigger: false
+        passed:
+          - job-a
+          - job-b
+          - job-c
+
+  - name: post-gate-job-a
+    plan:
+      - get: my-repo
+        trigger: true
+        passed:
+          - the-gate
+  - name: post-gate-job-b
+    plan:
+      - get: my-repo
+        trigger: true
+        passed:
+          - the-gate
+  - name: post-gate-job-c
+    plan:
+      - get: my-repo
+        trigger: true
+        passed:
+          - the-gate
